@@ -1,187 +1,36 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Neon Racer - Telegram Game</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <style>
-        body {
-            background-color: #050b14;
-            color: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            text-align: center;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-        }
-        canvas {
-            background: #0f172a;
-            border: 2px solid #38bdf8;
-            box-shadow: 0 0 20px rgba(56, 189, 248, 0.3);
-            border-radius: 8px;
-            touch-action: none;
-        }
-        .ui-container {
-            margin-top: 10px;
-            display: flex;
-            gap: 20px;
-        }
-        .control-btn {
-            background: linear-gradient(135deg, #38bdf8, #0284c7);
-            border: none;
-            border-radius: 10px;
-            padding: 12px 25px;
-            font-size: 18px;
-            font-weight: bold;
-            color: white;
-            cursor: pointer;
-            box-shadow: 0 5px 15px rgba(56, 189, 248, 0.4);
-        }
-        .control-btn:active { transform: scale(0.95); }
-    </style>
-</head>
-<body>
-
-    <h1>🏎️ Neon Racer</h1>
-    <canvas id="gameCanvas" width="320" height="420"></canvas>
-    
-    <div class="ui-container">
-        <button class="control-btn" ontouchstart="moveLeft()" onclick="moveLeft()">◀ Left</button>
-        <button class="control-btn" ontouchstart="moveRight()" onclick="moveRight()">Right ▶</button>
-    </div>
-
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-
-        let car = { x: 135, y: 340, width: 50, height: 70, speed: 5 };
-        let obstacles = [];
-        let score = 0;
-        let isGameOver = false;
-        let frameCount = 0;
-
-        function moveLeft() {
-            if (car.x > 20) car.x -= 30;
-        }
-
-        function moveRight() {
-            if (car.x < canvas.width - 70) car.x += 30;
-        }
-
-        // Keyboard controls for desktop testing
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowLeft') moveLeft();
-            if (e.key === 'ArrowRight') moveRight();
-        });
-
-        function spawnObstacle() {
-            let lanes = [20, 90, 160, 230];
-            let laneX = lanes[Math.floor(Math.random() * lanes.length)];
-            obstacles.push({ x: laneX, y: -80, width: 50, height: 70, speed: 4 });
-        }
-
-        function update() {
-            if (isGameOver) return;
-
-            frameCount++;
-            if (frameCount % 70 === 0) {
-                spawnObstacle();
-            }
-
-            // Move obstacles
-            for (let i = obstacles.length - 1; i >= 0; i--) {
-                obstacles[i].y += obstacles[i].speed;
-
-                // Collision detection
-                if (
-                    car.x < obstacles[i].x + obstacles[i].width &&
-                    car.x + car.width > obstacles[i].x &&
-                    car.y < obstacles[i].y + obstacles[i].height &&
-                    car.y + car.height > obstacles[i].y
-                ) {
-                    isGameOver = true;
-                    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
-                }
-
-                // Remove off-screen obstacles & add score
-                if (obstacles[i].y > canvas.height) {
-                    obstacles.splice(i, 1);
-                    score += 10;
-                }
-            }
-        }
-
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Draw Road Grid Lines
-            ctx.strokeStyle = '#1e293b';
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.moveTo(106, 0); ctx.lineTo(106, canvas.height);
-            ctx.moveTo(213, 0); ctx.lineTo(213, canvas.height);
-            ctx.stroke();
-
-            // Draw Player Car
-            ctx.fillStyle = '#38bdf8';
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = '#38bdf8';
-            ctx.fillRect(car.x, car.y, car.width, car.height);
-
-            // Draw Obstacles
-            ctx.fillStyle = '#f43f5e';
-            ctx.shadowColor = '#f43f5e';
-            for (let obs of obstacles) {
-                ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
-            }
-            ctx.shadowBlur = 0; // Reset shadow
-
-            // Draw Score
-            ctx.fillStyle = '#facc15';
-            ctx.font = 'bold 18px sans-serif';
-            ctx.textAlign = 'left';
-            ctx.fillText('Score: ' + score, 15, 30);
-
-            if (isGameOver) {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 24px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 20);
-                
-                ctx.font = '16px sans-serif';
-                ctx.fillText('Final Score: ' + score, canvas.width / 2, canvas.height / 2 + 15);
-                ctx.fillText('Tap to Restart', canvas.width / 2, canvas.height / 2 + 50);
-            }
-        }
-
-        canvas.addEventListener('click', () => {
-            if (isGameOver) {
-                isGameOver = false;
-                score = 0;
-                obstacles = [];
-                car.x = 135;
-            }
-        });
-
-        function loop() {
-            update();
-            draw();
-            requestAnimationFrame(loop);
-        }
-
-        loop();
-    </script>
+    drawCar(player.x,player.y,player.w,player.h,"#00ffff","#0077ff",true);
+    if(state==="playing"){
+      var lys=player.y-player.h*.43;
+      [player.x-player.w*.3,player.x+player.w*.3].forEach(function(hlx){
+        var cg=ctx.createRadialGradient(hlx,lys,0,hlx,lys-70,80);
+        cg.addColorStop(0,"rgba(200,255,255,.2)");cg.addColorStop(1,"rgba(0,200,255,0)");
+        ctx.fillStyle=cg;ctx.beginPath();ctx.moveTo(hlx,lys);ctx.lineTo(hlx-28,lys-110);ctx.lineTo(hlx+28,lys-110);ctx.closePath();ctx.fill();
+      });
+    }
+  }
+  /* spark particles */
+  for(var i=0;i<particles.length;i++){
+    var p=particles[i];if(p.trail)continue;
+    ctx.globalAlpha=p.life;glow(p.color,14);ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.size*p.life,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;noGlow();
+  /* popups */
+  for(var i=0;i<popups.length;i++){
+    var pp=popups[i];ctx.globalAlpha=pp.life;glow(pp.color,14);
+    ctx.fillStyle=pp.color;ctx.font="bold "+(18*pp.life+10)+"px 'Courier New',monospace";
+    ctx.textAlign="center";ctx.fillText(pp.text,pp.x,pp.y);
+  }
+  ctx.globalAlpha=1;noGlow();
+  /* scanlines */
+  for(var sy=0;sy<H;sy+=4){ctx.fillStyle="rgba(0,0,0,.04)";ctx.fillRect(0,sy,W,1);}
+}
+/* ---- LOOP ---- */
+var lastTime=0;
+function loop(ts){lastTime=ts;update();render();requestAnimationFrame(loop);}
+requestAnimationFrame(loop);
+showMenu();
+})();
+</script>
 </body>
 </html>
